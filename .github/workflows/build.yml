@@ -13,6 +13,21 @@ jobs:
           mv app_build.gradle.kts app/build.gradle.kts
           mv AndroidManifest.xml app/src/main/
           mv Layout.kt EditorView.kt MainActivity.kt app/src/main/java/cz/padstudio/
+      - name: Stahnout jadra emulatoru
+        run: |
+          base=https://buildbot.libretro.com/nightly/android/latest/arm64-v8a
+          d=app/src/main/jniLibs/arm64-v8a
+          mkdir -p $d
+          for n in mupen64plus_next_gles3 melonds desmume; do
+            if curl -fsSL -o /tmp/$n.zip "$base/${n}_libretro_android.so.zip"; then
+              unzip -o /tmp/$n.zip -d /tmp/core_$n
+              for f in /tmp/core_$n/*.so; do cp "$f" "$d/lib$(basename $f)"; done
+            else
+              echo "NENALEZENO: $n"
+            fi
+          done
+          ls -la $d
+          test -n "$(ls $d)" || { echo "ZADNA JADRA"; exit 1; }
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
