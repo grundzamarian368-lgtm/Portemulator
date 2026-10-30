@@ -33,15 +33,14 @@ class PadButton(
 }
 
 /** Ukládání rozložení (autosave) + vlastní obrázky tlačítek. */
-class LayoutStore(ctx: Context, key: String = "default") {
-    private val baseFile = File(ctx.filesDir, "layout.json")
-    private val file = if (key == "default") baseFile else File(ctx.filesDir, "layout_$key.json")
+class LayoutStore(ctx: Context, key: String = "default", private val n64: Boolean = false) {
+    private val file = if (key == "default") File(ctx.filesDir, "layout.json") else File(ctx.filesDir, "layout_$key.json")
     val imageDir = File(ctx.filesDir, "buttons").apply { mkdirs() }
 
     fun load(): MutableList<PadButton> {
-        val src = if (file.exists()) file else if (baseFile.exists()) baseFile else return defaultLayout()
+        if (!file.exists()) return defaultLayout()
         return try {
-            val arr = JSONObject(src.readText()).getJSONArray("buttons")
+            val arr = JSONObject(file.readText()).getJSONArray("buttons")
             MutableList(arr.length()) { PadButton.fromJson(arr.getJSONObject(it)) }
         } catch (e: Exception) { defaultLayout() }
     }
@@ -56,7 +55,23 @@ class LayoutStore(ctx: Context, key: String = "default") {
 
     fun exportJson(): String = if (file.exists()) file.readText() else ""
 
-    private fun defaultLayout(): MutableList<PadButton> = mutableListOf(
+    fun defaultLayout(): MutableList<PadButton> = if (n64) n64Layout() else ndsLayout()
+
+    private fun n64Layout(): MutableList<PadButton> = mutableListOf(
+        PadButton(newId(), "STICK", 0.14f, 0.68f, 0.30f),
+        PadButton(newId(), "A", 0.91f, 0.70f, 0.15f),
+        PadButton(newId(), "B", 0.81f, 0.82f, 0.14f),
+        PadButton(newId(), "C_UP", 0.80f, 0.28f, 0.10f),
+        PadButton(newId(), "C_DOWN", 0.80f, 0.56f, 0.10f),
+        PadButton(newId(), "C_LEFT", 0.72f, 0.42f, 0.10f),
+        PadButton(newId(), "C_RIGHT", 0.88f, 0.42f, 0.10f),
+        PadButton(newId(), "L", 0.08f, 0.14f, 0.12f),
+        PadButton(newId(), "Z", 0.22f, 0.14f, 0.12f),
+        PadButton(newId(), "R", 0.92f, 0.14f, 0.12f),
+        PadButton(newId(), "START", 0.50f, 0.88f, 0.10f)
+    )
+
+    private fun ndsLayout(): MutableList<PadButton> = mutableListOf(
         PadButton(newId(), "A", 0.92f, 0.62f, 0.14f),
         PadButton(newId(), "B", 0.82f, 0.78f, 0.14f),
         PadButton(newId(), "X", 0.82f, 0.46f, 0.14f),
