@@ -21,6 +21,8 @@ import android.widget.*
 import androidx.activity.ComponentActivity
 import com.swordfish.libretrodroid.GLRetroView
 import com.swordfish.libretrodroid.GLRetroViewData
+import com.swordfish.libretrodroid.ShaderConfig
+import com.swordfish.libretrodroid.Variable
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +70,11 @@ class MainActivity : ComponentActivity() {
             b.text = if (editor.editMode) "Hrát" else "Upravit"
             panel.visibility = View.GONE
         })
+        bar.addView(btn("Kamera: ano") { b ->
+            editor.cameraTouch = !editor.cameraTouch
+            b.text = if (editor.cameraTouch) "Kamera: ano" else "Kamera: ne"
+        })
+        bar.addView(btn("Grafika") { gfxDialog() })
         bar.addView(btn("Obnovit") {
             AlertDialog.Builder(this).setMessage("Vrátit výchozí rozložení pro tuhle hru?")
                 .setPositiveButton("Ano") { _, _ -> editor.resetLayout() }
@@ -162,6 +169,20 @@ class MainActivity : ComponentActivity() {
             gameFilePath = rom.absolutePath
             systemDirectory = File(filesDir, "system").apply { mkdirs() }.absolutePath
             savesDirectory = File(filesDir, "saves").apply { mkdirs() }.absolutePath
+            val gp = getSharedPreferences("gfx", MODE_PRIVATE)
+            shader = when (gp.getInt("shader", 0)) {
+                1 -> ShaderConfig.CRT
+                2 -> ShaderConfig.LCD
+                3 -> ShaderConfig.Sharp
+                else -> ShaderConfig.Default
+            }
+            if (n64) {
+                val q = gp.getInt("quality", 1).coerceIn(0, 2)
+                variables = arrayOf(
+                    Variable("mupen64plus-43screensize", arrayOf("320x240", "640x480", "960x720")[q]),
+                    Variable("mupen64plus-169screensize", arrayOf("320x180", "640x360", "960x540")[q])
+                )
+            }
         }
         val v = GLRetroView(this, data)
         lifecycle.addObserver(v)
@@ -171,6 +192,21 @@ class MainActivity : ComponentActivity() {
         val key = rom.nameWithoutExtension.replace(Regex("[^A-Za-z0-9_-]"), "_") + (if (n64) "_n64" else "_nds")
         editor.switchLayout(LayoutStore(this, key, n64))
         editor.gameRunning = true
+    }
+
+    private fun gfxDialog() {
+        val p = getSharedPreferences("gfx", MODE_PRIVATE)
+        AlertDialog.Builder(this).setTitle("Filtr obrazu")
+            .setSingleChoiceItems(arrayOf("Výchozí", "CRT", "LCD", "Ostré pixely"), p.getInt("shader", 0)) { dlg, i ->
+                p.edit().putInt("shader", i).apply()
+                dlg.dismiss()
+                AlertDialog.Builder(this).setTitle("Kvalita (N64)")
+                    .setSingleChoiceItems(arrayOf("Rychlost", "Vyvážená", "Kvalita"), p.getInt("quality", 1)) { d2, j ->
+                        p.edit().putInt("quality", j).apply()
+                        d2.dismiss()
+                        toast("Projeví se při dalším spuštění hry")
+                    }.show()
+            }.show()
     }
 
     private fun pinShortcut() {
