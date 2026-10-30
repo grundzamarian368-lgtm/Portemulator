@@ -68,6 +68,11 @@ class MainActivity : ComponentActivity() {
             b.text = if (editor.editMode) "Hrát" else "Upravit"
             panel.visibility = View.GONE
         })
+        bar.addView(btn("Obnovit") {
+            AlertDialog.Builder(this).setMessage("Vrátit výchozí rozložení pro tuhle hru?")
+                .setPositiveButton("Ano") { _, _ -> editor.resetLayout() }
+                .setNegativeButton("Ne", null).show()
+        })
         bar.addView(btn("Zástupce") { pinShortcut() })
         bar.addView(btn("Ukončit hru") { recreate() })
         val scroll = HorizontalScrollView(this).apply { addView(bar) }
@@ -163,7 +168,8 @@ class MainActivity : ComponentActivity() {
         root.addView(v, 0, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         retro = v
         currentRom = rom
-        editor.switchLayout(LayoutStore(this, rom.nameWithoutExtension.replace(Regex("[^A-Za-z0-9_-]"), "_")))
+        val key = rom.nameWithoutExtension.replace(Regex("[^A-Za-z0-9_-]"), "_") + (if (n64) "_n64" else "_nds")
+        editor.switchLayout(LayoutStore(this, key, n64))
         editor.gameRunning = true
     }
 
