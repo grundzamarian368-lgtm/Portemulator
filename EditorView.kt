@@ -163,6 +163,10 @@ class EditorView(ctx: Context, var store: LayoutStore) : View(ctx) {
         buttons.remove(b); select(null); save(); invalidate()
     }
 
+    fun resetLayout() {
+        buttons = store.defaultLayout(); select(null); save(); invalidate()
+    }
+
     fun mirror() { buttons.forEach { it.x = 1f - it.x }; save(); invalidate() }
 
     fun setImage(b: PadButton, name: String) {
