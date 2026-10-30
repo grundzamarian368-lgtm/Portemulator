@@ -5,6 +5,7 @@ import android.graphics.*
 import android.view.MotionEvent
 import android.view.View
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
 
@@ -21,6 +22,10 @@ class EditorView(ctx: Context, var store: LayoutStore) : View(ctx) {
     private val pointerTargets = HashMap<Int, PadButton>()
     private val bitmaps = HashMap<String, Bitmap>()
     private val stick = HashMap<PadButton, PointF>()
+    private val camLast = HashMap<Int, PointF>()
+    private val camReset = Runnable { onAxis?.invoke(1, 0f, 0f) }
+    /** prázdné místo na obrazovce = kamera (pravá páčka) */
+    var cameraTouch = true
     private var dx = 0f
     private var dy = 0f
 
@@ -28,7 +33,7 @@ class EditorView(ctx: Context, var store: LayoutStore) : View(ctx) {
         set(v) { field = v; invalidate() }
 
     var editMode = true
-        set(v) { field = v; pointerTargets.clear(); stick.clear(); invalidate() }
+        set(v) { field = v; pointerTargets.clear(); stick.clear(); camLast.clear(); invalidate() }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 4f; color = Color.WHITE }
@@ -118,10 +123,16 @@ class EditorView(ctx: Context, var store: LayoutStore) : View(ctx) {
                     if (editMode) { select(b); dx = b.x * width - e.getX(i); dy = b.y * height - e.getY(i) }
                     else if (isStick(b)) updateStick(b, e.getX(i), e.getY(i))
                     else onKey?.invoke(b.action, true)
-                } else if (editMode && e.actionMasked == MotionEvent.ACTION_DOWN) select(null)
+                } else if (editMode) {
+                    if (e.actionMasked == MotionEvent.ACTION_DOWN) select(null)
+                } else if (gameRunning && cameraTouch) {
+                    camLast[e.getPointerId(i)] = PointF(e.getX(i), e.getY(i))
+                }
             }
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until e.pointerCount) {
+                    val cam = camLast[e.getPointerId(i)]
+                    if (cam != null) { moveCamera(cam, e.getX(i), e.getY(i)); continue }
                     val b = pointerTargets[e.getPointerId(i)] ?: continue
                     if (editMode) {
                         if (b !== selected) continue
@@ -137,7 +148,20 @@ class EditorView(ctx: Context, var store: LayoutStore) : View(ctx) {
         return true
     }
 
+    private fun moveCamera(last: PointF, x: Float, y: Float) {
+        val dx = x - last.x
+        val dy = y - last.y
+        last.set(x, y)
+        if (abs(dx) < 2f && abs(dy) < 2f) return
+        fun amp(d: Float): Float =
+            if (abs(d) < 2f) 0f else (if (d > 0) 1f else -1f) * (abs(d) / 25f).coerceIn(0.6f, 1f)
+        onAxis?.invoke(1, amp(dx), amp(dy))
+        removeCallbacks(camReset)
+        postDelayed(camReset, 90)
+    }
+
     private fun release(id: Int) {
+        if (camLast.remove(id) != null) { onAxis?.invoke(1, 0f, 0f); return }
         val b = pointerTargets.remove(id) ?: return
         if (editMode) { save(); return }
         if (isStick(b)) { stick.remove(b); onAxis?.invoke(side(b), 0f, 0f) }
